@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useOptimistic } from 'react';
+import { useActionState, useOptimistic, useTransition } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
@@ -21,6 +21,8 @@ export function FormEditClient({ initialData }: FormEditClientProps) {
     (_currentState, newData: UserFormData) => newData
   );
 
+  const [, startTransition] = useTransition();
+
   const {
     register,
     handleSubmit,
@@ -38,22 +40,24 @@ export function FormEditClient({ initialData }: FormEditClientProps) {
 
   // フォーム送信時にOptimistic UIを更新
   const onSubmit = async (data: UserFormData) => {
-    // 楽観的に即座にUIを更新
-    setOptimisticData(data);
+    startTransition(() => {
+      // 楽観的に即座にUIを更新
+      setOptimisticData(data);
 
-    // FormDataを作成してServer Actionに渡す
-    const formData = new FormData();
-    formData.append('username', data.username);
-    formData.append('email', data.email);
-    formData.append('displayName', data.displayName);
-    formData.append('bio', data.bio || '');
-    formData.append('age', String(data.age));
-    formData.append('country', data.country);
-    formData.append('skills', JSON.stringify(data.skills));
-    formData.append('receiveNewsletter', String(data.receiveNewsletter));
+      // FormDataを作成してServer Actionに渡す
+      const formData = new FormData();
+      formData.append('username', data.username);
+      formData.append('email', data.email);
+      formData.append('displayName', data.displayName);
+      formData.append('bio', data.bio || '');
+      formData.append('age', String(data.age));
+      formData.append('country', data.country);
+      formData.append('skills', JSON.stringify(data.skills));
+      formData.append('receiveNewsletter', String(data.receiveNewsletter));
 
-    // Server Actionを実行
-    formAction(formData);
+      // Server Actionを実行
+      formAction(formData);
+    });
   };
 
   return (
