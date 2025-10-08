@@ -2,44 +2,24 @@
 
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import Link from 'next/link';
-
-const userSchema = z.object({
-  username: z.string()
-    .min(3, 'ユーザー名は3文字以上で入力してください'),
-  email: z.string()
-    .includes('@', { message: '有効なメールアドレスを入力してください' }),
-  displayName: z.string()
-    .min(1, '表示名は必須です'),
-  bio: z.string()
-    .max(200, '自己紹介は200文字以内で入力してください')
-    .optional(),
-  age: z.number()
-    .min(18, '18歳以上である必要があります')
-    .max(120, '有効な年齢を入力してください'),
-  country: z.string()
-    .min(1, '国を選択してください'),
-  skills: z.array(
-    z.object({
-      name: z.string().min(1, 'スキル名は必須です'),
-    })
-  ).min(1, '最低1つのスキルを入力してください'),
-  receiveNewsletter: z.boolean(),
-});
-
-type UserFormData = z.infer<typeof userSchema>;
+import { useState, useTransition } from 'react';
+import { updateUserData } from './actions';
+import { userSchema, type UserFormData } from './schema';
 
 type FormEditClientProps = {
   initialData: UserFormData;
 };
 
 export function FormEditClient({ initialData }: FormEditClientProps) {
+  const [isPending, startTransition] = useTransition();
+  const [message, setMessage] = useState<string>('');
+
   const {
     register,
     handleSubmit,
     control,
-    formState: { errors, isSubmitting, isDirty },
+    formState: { errors, isDirty },
     reset,
   } = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
@@ -51,16 +31,20 @@ export function FormEditClient({ initialData }: FormEditClientProps) {
     name: 'skills',
   });
 
-  const onSubmit = async (data: UserFormData) => {
-    // API更新をシミュレート
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log('Updated user data:', data);
-    alert(`ユーザー情報を更新しました！\n表示名: ${data.displayName}`);
-    reset(data); // 更新後のデータで再設定（isDirtyをリセット）
+  const onSubmit = (data: UserFormData) => {
+    startTransition(async () => {
+      const result = await updateUserData(data);
+      if (result.success) {
+        setMessage(result.message);
+        reset(data);
+        setTimeout(() => setMessage(''), 3000);
+      }
+    });
   };
 
   const handleReset = () => {
     reset(initialData);
+    setMessage('');
   };
 
   return (
@@ -79,6 +63,12 @@ export function FormEditClient({ initialData }: FormEditClientProps) {
           <h1 className="text-2xl font-bold text-gray-900 mb-6">
             ユーザー情報編集
           </h1>
+
+          {message && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md">
+              <p className="text-green-800 text-sm whitespace-pre-line">{message}</p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Username */}
@@ -248,22 +238,22 @@ export function FormEditClient({ initialData }: FormEditClientProps) {
             <div className="flex gap-4">
               <button
                 type="submit"
-                disabled={isSubmitting || !isDirty}
+                disabled={isPending || !isDirty}
                 className="flex-1 flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? '更新中...' : '変更を保存'}
+                {isPending ? '更新中...' : '変更を保存'}
               </button>
               <button
                 type="button"
                 onClick={handleReset}
-                disabled={isSubmitting}
+                disabled={isPending}
                 className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 リセット
               </button>
             </div>
 
-            {!isDirty && (
+            {!isDirty && !message && (
               <p className="text-sm text-gray-500 text-center">
                 変更がありません
               </p>
