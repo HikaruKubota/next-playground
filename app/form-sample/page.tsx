@@ -1,35 +1,39 @@
 'use client';
 
 import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 
-type FormData = {
-  username: string;
-  email: string;
-  age: number;
-  password: string;
-  confirmPassword: string;
-  agreeToTerms: boolean;
-};
+const formSchema = z.object({
+  username: z.string()
+    .min(3, 'ユーザー名は3文字以上で入力してください'),
+  email: z.string()
+    .includes('@', { message: '有効なメールアドレスを入力してください' }),
+  age: z.number()
+    .min(18, '18歳以上である必要があります')
+    .max(120, '有効な年齢を入力してください'),
+  password: z.string()
+    .min(8, 'パスワードは8文字以上で入力してください')
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, '英大文字、英小文字、数字をそれぞれ1文字以上含めてください'),
+  confirmPassword: z.string(),
+  agreeToTerms: z.boolean()
+    .refine((val) => val === true, '利用規約に同意してください'),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'パスワードが一致しません',
+  path: ['confirmPassword'],
+});
+
+type FormData = z.infer<typeof formSchema>;
 
 export default function FormSamplePage() {
   const {
     register,
     handleSubmit,
-    watch,
     formState: { errors, isSubmitting },
     reset,
   } = useForm<FormData>({
-    defaultValues: {
-      username: '',
-      email: '',
-      age: 0,
-      password: '',
-      confirmPassword: '',
-      agreeToTerms: false,
-    },
+    resolver: zodResolver(formSchema),
   });
-
-  const password = watch('password');
 
   const onSubmit = async (data: FormData) => {
     // Simulate API call
@@ -55,13 +59,7 @@ export default function FormSamplePage() {
             <input
               id="username"
               type="text"
-              {...register('username', {
-                required: 'ユーザー名は必須です',
-                minLength: {
-                  value: 3,
-                  message: '3文字以上で入力してください',
-                },
-              })}
+              {...register('username')}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
             {errors.username && (
@@ -77,13 +75,7 @@ export default function FormSamplePage() {
             <input
               id="email"
               type="email"
-              {...register('email', {
-                required: 'メールアドレスは必須です',
-                pattern: {
-                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                  message: '有効なメールアドレスを入力してください',
-                },
-              })}
+              {...register('email')}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
             {errors.email && (
@@ -99,17 +91,7 @@ export default function FormSamplePage() {
             <input
               id="age"
               type="number"
-              {...register('age', {
-                required: '年齢は必須です',
-                min: {
-                  value: 18,
-                  message: '18歳以上である必要があります',
-                },
-                max: {
-                  value: 120,
-                  message: '有効な年齢を入力してください',
-                },
-              })}
+              {...register('age', { valueAsNumber: true })}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
             {errors.age && (
@@ -125,17 +107,7 @@ export default function FormSamplePage() {
             <input
               id="password"
               type="password"
-              {...register('password', {
-                required: 'パスワードは必須です',
-                minLength: {
-                  value: 8,
-                  message: '8文字以上で入力してください',
-                },
-                pattern: {
-                  value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-                  message: '英大文字、英小文字、数字をそれぞれ1文字以上含めてください',
-                },
-              })}
+              {...register('password')}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
             {errors.password && (
@@ -151,11 +123,7 @@ export default function FormSamplePage() {
             <input
               id="confirmPassword"
               type="password"
-              {...register('confirmPassword', {
-                required: 'パスワード確認は必須です',
-                validate: (value) =>
-                  value === password || 'パスワードが一致しません',
-              })}
+              {...register('confirmPassword')}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
             {errors.confirmPassword && (
@@ -169,9 +137,7 @@ export default function FormSamplePage() {
               <input
                 id="agreeToTerms"
                 type="checkbox"
-                {...register('agreeToTerms', {
-                  required: '利用規約に同意してください',
-                })}
+                {...register('agreeToTerms')}
                 className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
             </div>
