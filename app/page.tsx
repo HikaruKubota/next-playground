@@ -8,8 +8,13 @@ const samples = [
   },
   {
     title: "ユーザー情報編集フォーム",
-    description: "既存データの編集とdefaultValue使用例",
+    description: "useActionState + useOptimistic（React 19）",
     href: "/form-edit-sample",
+  },
+  {
+    title: "use() Hook サンプル",
+    description: "Client Componentで非同期データを扱う（React 19）",
+    href: "/use-sample",
   },
 ];
 
