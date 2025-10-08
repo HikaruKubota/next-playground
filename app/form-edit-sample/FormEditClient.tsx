@@ -1,9 +1,9 @@
 'use client';
 
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useActionState, useOptimistic } from 'react';
+import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
 import { updateUserData } from './actions';
 import { userSchema, type UserFormData } from './schema';
 
@@ -12,18 +12,23 @@ type FormEditClientProps = {
 };
 
 export function FormEditClient({ initialData }: FormEditClientProps) {
-  const [isPending, startTransition] = useTransition();
-  const [message, setMessage] = useState<string>('');
+  // React 19のuseActionStateを使用
+  const [state, formAction, isPending] = useActionState(updateUserData, null);
+
+  // React 19のuseOptimisticを使用（楽観的UI更新）
+  const [optimisticData, setOptimisticData] = useOptimistic(
+    initialData,
+    (_currentState, newData: UserFormData) => newData
+  );
 
   const {
     register,
     handleSubmit,
     control,
-    formState: { errors, isDirty },
-    reset,
+    formState: { errors },
   } = useForm<UserFormData>({
     resolver: zodResolver(userSchema),
-    defaultValues: initialData,
+    defaultValues: optimisticData,
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -31,20 +36,24 @@ export function FormEditClient({ initialData }: FormEditClientProps) {
     name: 'skills',
   });
 
-  const onSubmit = (data: UserFormData) => {
-    startTransition(async () => {
-      const result = await updateUserData(data);
-      if (result.success) {
-        setMessage(result.message);
-        reset(data);
-        setTimeout(() => setMessage(''), 3000);
-      }
-    });
-  };
+  // フォーム送信時にOptimistic UIを更新
+  const onSubmit = async (data: UserFormData) => {
+    // 楽観的に即座にUIを更新
+    setOptimisticData(data);
 
-  const handleReset = () => {
-    reset(initialData);
-    setMessage('');
+    // FormDataを作成してServer Actionに渡す
+    const formData = new FormData();
+    formData.append('username', data.username);
+    formData.append('email', data.email);
+    formData.append('displayName', data.displayName);
+    formData.append('bio', data.bio || '');
+    formData.append('age', String(data.age));
+    formData.append('country', data.country);
+    formData.append('skills', JSON.stringify(data.skills));
+    formData.append('receiveNewsletter', String(data.receiveNewsletter));
+
+    // Server Actionを実行
+    formAction(formData);
   };
 
   return (
@@ -60,13 +69,17 @@ export function FormEditClient({ initialData }: FormEditClientProps) {
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
             ユーザー情報編集
           </h1>
+          <p className="text-sm text-gray-600 mb-6">
+            React 19の<code className="bg-gray-100 px-1 rounded">useActionState</code>と
+            <code className="bg-gray-100 px-1 rounded">useOptimistic</code>を使用
+          </p>
 
-          {message && (
+          {state?.message && (
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-md">
-              <p className="text-green-800 text-sm whitespace-pre-line">{message}</p>
+              <p className="text-green-800 text-sm whitespace-pre-line">{state.message}</p>
             </div>
           )}
 
@@ -238,27 +251,31 @@ export function FormEditClient({ initialData }: FormEditClientProps) {
             <div className="flex gap-4">
               <button
                 type="submit"
-                disabled={isPending || !isDirty}
+                disabled={isPending}
                 className="flex-1 flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isPending ? '更新中...' : '変更を保存'}
               </button>
-              <button
-                type="button"
-                onClick={handleReset}
-                disabled={isPending}
-                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                リセット
-              </button>
             </div>
 
-            {!isDirty && !message && (
-              <p className="text-sm text-gray-500 text-center">
-                変更がありません
+            {isPending && (
+              <p className="text-sm text-blue-600 text-center animate-pulse">
+                楽観的UIで即座に反映されます...
               </p>
             )}
           </form>
+
+          {/* 説明 */}
+          <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <h3 className="font-semibold text-blue-900 mb-2">
+              🆕 React 19の新機能を使用
+            </h3>
+            <ul className="text-sm text-blue-800 space-y-1">
+              <li>• <code className="bg-blue-100 px-1 rounded">useActionState</code> - Server Actionの状態管理</li>
+              <li>• <code className="bg-blue-100 px-1 rounded">useOptimistic</code> - 楽観的UI更新（送信前に即座に反映）</li>
+              <li>• フォーム送信時、サーバーレスポンス前にUIが更新されます</li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
